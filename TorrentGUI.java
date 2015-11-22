@@ -36,10 +36,25 @@ public class TorrentGUI extends JFrame{
         panel.setLayout(new FlowLayout());
         if(processes.isStarted()){
             btnStartStop = new JButton("Stop");
+            
             btnExitContinue = new JButton("EXIT and Continue Next Time");
+            progressBar = new JProgressBar();
+            progressBar.setMinimum(0);
+            progressBar.setMaximum(100);
+            progressBar.setValue(0);
+            progressBar.setStringPainted(true);
+            add(progressBar);
+            
         }
+            
+        
         else btnStartStop = new JButton("Start");
         //progressBar = new JProgressBar();
+    }
+    
+    public void updateBar(int newValue){
+        progressBar.setValue(newValue);
+        progressBar.setStringPainted(true);
     }
     
     /**
@@ -59,13 +74,20 @@ public class TorrentGUI extends JFrame{
         //panel.add(label);
         //panel.add(btnStartStop);
         panel.add(btnExitContinue);
+        panel.add(progressBar);
         //panel.add(progressBar);
         add(panel);
         setSize(400, 200);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setVisible(true);
-    }
+       
+       while(processes.downloaded < processes.file_length){
+            int value = (int)(processes.downloaded/processes.file_length);
+            updateBar(value);
+            progressBar.repaint();
+            this.repaint();
+       }
     
-    
+   }
 }
