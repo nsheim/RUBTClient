@@ -1,0 +1,267 @@
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.File;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Timer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ * ProcessHandler.java
+ * Keeps track of and manages information used for downloading, including torrent info, the downloading file, timers, and threads.
+ *  
+ * @author Shuhan Liu (sl1041) 154007082
+ * @author Nicole Heimbach (nsh43) 153002353
+
+ * @version RUBTClient Phase 2, 11/04/2015
+ */
+
+public class ProcessHandler {
+    
+    private TorrentInfo torrentInfo;
+    private File file;
+    private Timer trackerTimer;
+    private TrackerAnnouncer announcer;
+    
+    private boolean started;
+    
+    private InetAddress addr;
+    private Client client;
+    
+    private List<PeerSwingWorker> peerWorkers;
+    private long startTime;
+    private long downloadTime;
+    private long timerTime;
+    
+    int uploaded;
+    int downloaded;
+    int downloadedPiece;
+    int left;
+    boolean downloadCompleteFromStart;
+    
+    /**
+     * Constructor for objects of class ProcessHandler.
+     * @param torrentInfo information retrieved from the parsed torrent file
+     * @param downloaded number of pieces already downloaded
+     */
+    public ProcessHandler(TorrentInfo torrentInfo, File file, int downloaded, int downloadedPiece){
+        try {
+            this.torrentInfo = torrentInfo;
+            this.file = file;
+            started = false;
+            this.downloaded = downloaded;
+            this.downloadedPiece = downloadedPiece;
+            if(downloadedPiece<torrentInfo.piece_hashes.length){
+                left = torrentInfo.file_length - downloadedPiece*torrentInfo.piece_length;
+            }
+            else if(downloadedPiece==torrentInfo.piece_hashes.length){
+                left = 0;
+            }
+            addr = InetAddress.getLocalHost();
+            client = new Client(Client.generatePeerID(), addr.getHostAddress(),-1); //your port doesn't matter
+            client.initBitfield(torrentInfo);
+            client.initPieces(torrentInfo);
+            
+            for(int i=0;i<downloadedPiece;i++){
+                    
+                if(file.exists()){
+                    FileInputStream input = new FileInputStream(file);
+                    byte[] piece = new byte[torrentInfo.piece_length];
+                    input.read(piece,0, torrentInfo.piece_length);
+                    client.addPiece(i, piece, 0);
+                }
+                client.setBitfieldValue(i,true);
+            }
+            
+            
+            client.updateDownloadComplete(this);
+            if (client.downloadComplete) {
+                downloadCompleteFromStart = true;
+            }
+            else{
+                downloadCompleteFromStart = false;
+            }
+            RUBTClient.debugPrint("HOST ADDRESS: " + addr.getHostAddress());
+            
+        } catch (UnknownHostException ex) {
+            Logger.getLogger(ProcessHandler.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        /*catch(FileNotFoundException e){
+            System.err.println(e);
+            e.printStackTrace();
+        }*/
+        catch(IOException e){
+            System.err.println(e);
+            e.printStackTrace();
+        }
+    }
+    /**
+     * Returns a TorrentInfo object that contains
+     * @return information retrieved from the parsed torrent file
+     */
+    public TorrentInfo getTorrentInfo(){
+        return torrentInfo;
+    }
+    /**
+     * Returns the file being downloaded.
+     * @return the file being downloaded
+     */
+    public File getFile(){
+        return file;
+    }
+    /**
+     * Returns the timer used to manage announces to the tracker.
+     * @return the timer used to manage announces to the tracker
+     */
+    public Timer getTrackerTimer(){
+        return trackerTimer;
+    }
+    
+    /**
+     * (Re)starts the torrenting process.
+     */
+    public void restart(){
+        startTime = System.nanoTime();
+        started = true;
+        peerWorkers = Collections.synchronizedList(new ArrayList());
+        List<Peer> localPeers;
+
+        RUBTClient.debugPrint(getTorrentInfo().announce_url.toString());
+
+        scheduleTimer();
+
+        localPeers = announcer.getLocalPeers();
+        //create and start peerswingworkers
+        for (int i = 0; i < localPeers.size(); i++){
+            peerWorkers.add(new PeerSwingWorker(this,localPeers.get(i)));
+            peerWorkers.get(i).execute();
+        }
+    }
+    /**
+     * Stops the torrenting process and prints the download time.
+     */
+    public void stop(){
+        if(!client.downloadComplete){
+            downloadTime += System.nanoTime()-startTime;
+        }
+        else if (downloadCompleteFromStart){
+            downloadTime = 0;
+        }
+        started = false;
+        for (int i = 0; i < peerWorkers.size(); i++){
+            peerWorkers.get(i).cancel(true);
+        }
+        trackerTimer.cancel();
+        trackerTimer.purge();
+        
+        announcer.updateEvent(TrackerRequest.EVENT_STOPPED);
+        announcer.run();
+        
+        System.out.println("\n\n\nYou have pressed EXIT");
+        
+        System.out.println("Download time: " + (downloadTime/1000000000) + " seconds");
+        System.out.println("The program will exit in 5 seconds...\n\n\n");
+        try{
+            Thread.sleep(5000);
+        }
+        catch(InterruptedException ex){
+            Thread.currentThread().interrupt();
+        }
+        System.exit(0);
+    }
+    
+    /**
+     * Sets the value of this.started to started
+     * @param started
+     */
+    public void setStarted(boolean started){
+        this.started = started;
+    }
+    /**
+     * Checks if the torrenting process has started
+     * @return true if started, else false
+     */
+    public boolean isStarted(){ 
+        return started;
+    }
+    /**
+     * Returns the client
+     * @return client the client (you) that is connecting to peers
+     */
+    public Client getClient(){ 
+        return client;
+    }
+    /**
+     * Creates a new announcer object and schedules to timer to run based off of intervals received from the announcer.
+     */
+    public void scheduleTimer(){
+        announcer = new TrackerAnnouncer(this, client.getPeerID(), torrentInfo, file);
+        announcer.updateDownload(downloaded, left, TrackerRequest.EVENT_STARTED);
+        if(client.downloadComplete){
+            announcer.updateEvent(TrackerRequest.EVENT_COMPLETED);
+        }
+        
+        announcer.run();
+        Integer minInterval = announcer.getMinInterval();
+        Integer interval = announcer.getInterval();
+        
+        if(minInterval>0){
+            trackerTimer = new Timer();
+            trackerTimer.scheduleAtFixedRate(announcer, (long)(minInterval*1000),(long)(minInterval*1000));
+        }
+        else {
+            trackerTimer = new Timer();
+            trackerTimer.scheduleAtFixedRate(announcer, (long)(interval*1000), (long)(interval*1000));
+        }
+    }
+    /**
+     * Returns a List<PeerSwingWorker> of the current peer workers.
+     * @return list of current peer workers (i.e., peer threads)
+     */
+    public List<PeerSwingWorker> getPeerWorkers(){
+        return peerWorkers;
+    }
+    
+    /**
+     * Returns the PeerSwingWorker in the list of peer workers found at [index].
+     * @return peerWorkers[index]
+     */
+    public PeerSwingWorker getPeerWorker(int index){ 
+        return peerWorkers.get(index);
+    }
+    /**
+     * Adds a PeerSwingWorker to the current list of peer workers.
+     * @param peerWorker peerWorker to be added to the current list of peer workers
+     */
+    public void addPeerWorker(PeerSwingWorker peerWorker){
+        peerWorkers.add(peerWorker);
+    }
+    /**
+     * Updates the current peer workers to match a new list of peer workers.
+     * Precondition: the peer workers in this list have already been executed, and those from the previous list that are not in the current list have been ended.
+     * @param peerWorkers the new list of peerWorkers
+     */
+    public void updatePeerWorkers(List<PeerSwingWorker> peerWorkers){
+        this.peerWorkers = peerWorkers;
+    }
+    /**
+     * returns the current TrackerAnnouncer object
+     * @return announcer the current TrackerAnnouncer object
+     */
+    public TrackerAnnouncer getAnnouncer(){
+        return announcer;
+    }
+    /**
+     * Calculates the downnload time based off of the start time.
+     * Precondition: Client has just finished downloading
+     */
+    public void setDownloadTime(){ 
+        downloadTime+=System.nanoTime()-startTime;
+    }
+    
+}
