@@ -2,6 +2,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.File;
+import java.io.RandomAccessFile;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ public class ProcessHandler {
     
     private TorrentInfo torrentInfo;
     private File file;
+    private RandomAccessFile raFile;
     private Timer trackerTimer;
     private TrackerAnnouncer announcer;
     
@@ -40,7 +42,6 @@ public class ProcessHandler {
     
     int uploaded;
     int downloaded;
-    int downloadedPiece;
     int left;
     boolean downloadCompleteFromStart;
     
@@ -49,52 +50,89 @@ public class ProcessHandler {
      * @param torrentInfo information retrieved from the parsed torrent file
      * @param downloaded number of pieces already downloaded
      */
-    public ProcessHandler(TorrentInfo torrentInfo, File file, int downloaded, int downloadedPiece){
+    public ProcessHandler(TorrentInfo torrentInfo, File file, boolean fileAlreadyExisted){
         try {
             this.torrentInfo = torrentInfo;
             this.file = file;
+            
+            raFile = new RandomAccessFile(file, "rw");
+            
             started = false;
-            this.downloaded = downloaded;
-            this.downloadedPiece = downloadedPiece;
-            if(downloadedPiece<torrentInfo.piece_hashes.length){
-                left = torrentInfo.file_length - downloadedPiece*torrentInfo.piece_length;
-            }
-            else if(downloadedPiece==torrentInfo.piece_hashes.length){
-                left = 0;
-            }
+            
+            uploaded = 0;
+            downloaded = 0;
+            left = torrentInfo.piece_hashes.length;
+            downloadCompleteFromStart = false;
+        
             addr = InetAddress.getLocalHost();
             client = new Client(Client.generatePeerID(), addr.getHostAddress(),-1); //your port doesn't matter
             client.initBitfield(torrentInfo);
             client.initPieces(torrentInfo);
             
-            for(int i=0;i<downloadedPiece;i++){
-                    
-                if(file.exists()){
-                    FileInputStream input = new FileInputStream(file);
-                    byte[] piece = new byte[torrentInfo.piece_length];
-                    input.read(piece,0, torrentInfo.piece_length);
-                    client.addPiece(i, piece, 0);
-                }
-                client.setBitfieldValue(i,true);
+            //if the file did not already exist, allot memory for it
+            if(!fileAlreadyExisted){
+                raFile.setLength(torrentInfo.file_length);
             }
             
-            
-            client.updateDownloadComplete(this);
-            if (client.downloadComplete) {
+            //check what pieces the client already has by checking the if there is anything stored in the first
+            //byte of each piece
+            //i.e., parse the file by checking every pieceLength'th piece, starting at 0.
+            else {
+                int lastPieceLength = torrentInfo.file_length - (torrentInfo.piece_hashes.length - 1)
+                                        *torrentInfo.piece_length;
+               
+                for (int i = 0; i < torrentInfo.piece_hashes.length - 1; i++){
+                    try {
+                        int pieceStartPosition = i * torrentInfo.piece_length;
+                        byte[] piece = new byte[torrentInfo.piece_length];
+                        
+                        Integer numBytesRead = raFile.read(piece, pieceStartPosition, torrentInfo.piece_length);
+                        if (numBytesRead!=null && numBytesRead.intValue() == torrentInfo.piece_length){
+                            client.addBlock(i,piece,0);
+                            client.setBitfieldValue(i,true);
+                            left--;
+                        }
+                    }
+                    catch(IOException e){
+                        System.err.println(e);
+                        e.printStackTrace();
+                    }
+                    catch(IndexOutOfBoundsException e){
+                    }
+                }
+                
+                try {
+                    byte[] piece = new byte[lastPieceLength];
+                    Integer numBytesRead = raFile.read(piece, (torrentInfo.piece_hashes.length-1)*torrentInfo.piece_length, torrentInfo.piece_length);
+                    
+                    if(numBytesRead!=null && numBytesRead == lastPieceLength){
+                        client.addBlock(torrentInfo.piece_hashes.length - 1, piece, 0);
+                        client.setBitfieldValue(torrentInfo.piece_hashes.length -1 , true);
+                        left--;
+                    }
+                }
+                catch(IOException e){
+                    System.err.println(e);
+                    e.printStackTrace();
+                }
+                catch(IndexOutOfBoundsException e){
+                    }
+            }
+            if(left==0) {
                 downloadCompleteFromStart = true;
             }
-            else{
+            else {
                 downloadCompleteFromStart = false;
             }
+            
+            client.updateDownloadComplete(this);
+            downloaded = left*torrentInfo.piece_length;
+            
             RUBTClient.debugPrint("HOST ADDRESS: " + addr.getHostAddress());
             
         } catch (UnknownHostException ex) {
             Logger.getLogger(ProcessHandler.class.getName()).log(Level.SEVERE, null, ex);
         }
-        /*catch(FileNotFoundException e){
-            System.err.println(e);
-            e.printStackTrace();
-        }*/
         catch(IOException e){
             System.err.println(e);
             e.printStackTrace();
@@ -113,6 +151,14 @@ public class ProcessHandler {
      */
     public File getFile(){
         return file;
+    }
+    
+    /**
+     * Returns the RandomAccessFile used for downloading the file.
+     * @return the RandomAccessFile used for downloading the file
+     */
+    public RandomAccessFile getRandomAccessFile(){
+        return raFile;
     }
     /**
      * Returns the timer used to manage announces to the tracker.

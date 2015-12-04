@@ -37,43 +37,48 @@ public class RUBTClient
         String saveFilePath = args[1];
         File file = new File(saveFilePath);
         
+        boolean fileAlreadyExisted = true;
+        
         byte[]data = parseTorrent(torrentFilePath);
         TorrentInfo torrentInfo; 
         
-        int downloadedPiece = 0;
-        
         try {
             torrentInfo = new TorrentInfo(data);
-               
+            
+            //create a new file if it does not already exist
+            if (!file.exists() || file.isDirectory()){
+                file.createNewFile();
+                fileAlreadyExisted = false;
+            }
+            
+            
             if(file.exists()&& !file.isDirectory()){
-                System.out.println("\n\n\n\n\n-------File Already Exists!!!!!!!!!Will Continue Download--------");
-                long len = file.length();
-                System.out.println("Completed File Length:" + len);
-                downloadedPiece = (int)Math.ceil((double)len/(double)torrentInfo.piece_length);
-                System.out.println("Completed Pieces:" + downloadedPiece + "/" + torrentInfo.piece_hashes.length + "\n\n\n");
-                System.out.println("Starting Download In 5 seconds...\n\n");
+                if (fileAlreadyExisted){
+                    System.out.println("\n\n\n\n\n-------File Already Exists!!!!!!!!!Will Continue Download--------");
+                }
+                System.out.println("Starting Download In 3 seconds...\n\n");
                 try{
-                    Thread.sleep(5000);
+                    Thread.sleep(3000);
                 }
                 catch(InterruptedException ex){
                     Thread.currentThread().interrupt();
                 }
+                
                 System.out.println("Start!");
-                ProcessHandler processes = new ProcessHandler(torrentInfo, file, (int)len, downloadedPiece);
+                ProcessHandler processes = new ProcessHandler(torrentInfo, file, fileAlreadyExisted);
+                
                 processes.restart();
                 TorrentGUI gui = new TorrentGUI(processes);
                 gui.init();
-                return;
             }
-            //else {    
-                debugPrint("Successfully read torrent");
-                ProcessHandler processes = new ProcessHandler(torrentInfo, file, 0, downloadedPiece);
-                processes.restart();
-                TorrentGUI gui = new TorrentGUI(processes);
-                gui.init();
-            //}
+            
+            
         }
         catch (BencodingException e) {
+            System.err.println(e);
+            e.printStackTrace();
+        }
+        catch (IOException e){
             System.err.println(e);
             e.printStackTrace();
         }

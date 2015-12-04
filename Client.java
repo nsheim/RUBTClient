@@ -12,8 +12,10 @@
  */
 public class Client extends Peer{
     
-    byte[][] pieces;
+    Piece[] pieces;
     boolean downloadComplete;
+    
+    private RarityQueue rarityQueue;
     /**
      * Constructor for objects of class Client.
      */
@@ -53,26 +55,60 @@ public class Client extends Peer{
   
   /**
    * Inititalizes the array of pieces based off of the information in the torrent file.
+   * Also initializes the RarityQueue that will keep track of the order to request pieces from peers.
    * @param torrentInfo information retrieved from the parsed torrent file
    */
   public void initPieces(TorrentInfo torrentInfo){
       //each piece hash index points to the block
-      pieces = new byte[torrentInfo.piece_hashes.length][];
+      pieces = new Piece[torrentInfo.piece_hashes.length];
       for (int i = 0; i<pieces.length-1;i++){
-          pieces[i] = new byte[torrentInfo.piece_length];
+          pieces[i] = new Piece(i,torrentInfo.piece_length);
       }
       
       int numPieces = torrentInfo.piece_hashes.length;
       //filelength - piece_length*(numPieces-1) should be the size of the last piece
-      pieces[pieces.length-1] = new byte[torrentInfo.file_length-torrentInfo.piece_length*(numPieces-1)]; 
+      pieces[pieces.length-1] = new Piece(pieces.length-1,torrentInfo.file_length-torrentInfo.piece_length*(numPieces-1));
+      
+      initRarityQueue(torrentInfo);
+  }
+  
+  private void initRarityQueue(TorrentInfo torrentInfo){
+      rarityQueue = new RarityQueue(torrentInfo.piece_hashes.length);
+      for(int i = 0; i<torrentInfo.piece_hashes.length;i++){
+          rarityQueue.add(pieces[i]);
+      }
+  }
+  
+  /**
+   * Returns the next piece index that will be requested.
+   * @return next piece index that will be requested
+   */
+  public int nextRequest(){
+      return rarityQueue.peek().getIndex();
+  }
+  
+  /**
+   * Returns the RarityQueue
+   * @return the RarityQueue
+   */
+  public RarityQueue getRarityQueue(){
+      return rarityQueue;
   }
   
   /**
    * Returns a 2D array of bytes representing the pieces the client currently has.
    * @return byte[index of piece][] pieces
    */
-  public byte[][] getPieces(){
+  public Piece[] getPieces(){
       return pieces;
+  }
+  
+  /**
+   * Returns a piece specified by index
+   * @return pieces[index]
+   */
+  public Piece getPiece(int index){
+      return pieces[index];
   }
   
   /**
@@ -82,9 +118,9 @@ public class Client extends Peer{
    * @param piece the block to add
    * @param offset offset within the piece at which to add the block
    */
-  public void addPiece(int pieceIndex, byte[] piece, int offset){
-      for(int i = offset; i<(pieces[pieceIndex]).length;i++){
-          pieces[pieceIndex][offset+i] = piece[i];
+  public void addBlock(int pieceIndex, byte[] block, int offset){
+      for(int i = 0; i<block.length;i++){
+          pieces[pieceIndex].setData(offset+i, block[i]);
       }
   }
   
@@ -100,21 +136,14 @@ public class Client extends Peer{
       else downloadComplete = false;
   }
   
-  /*public void updateDownloadComplete(){
-      for(int i = 0; i<getBitfield().length;i++){
-          if (!getBitfield()[i]){
-              downloadComplete = false;
-              return;
-          }
-      }
-      downloadComplete = true;
-  }*/
-  
   /**
    * Overrides the toString() method in the Object class.
    */
   @Override
   public String toString(){
         return "My PeerID: " + super.getPeerID() + "\tIP: " + super.getIP() + "\tport: " + super.getPort();  
-    }
+  }
+    
+  
+  
 }

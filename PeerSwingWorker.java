@@ -2,8 +2,8 @@
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.net.Socket;
 import java.util.Arrays;
 import javax.swing.SwingWorker;
@@ -21,7 +21,6 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
     ProcessHandler processes;
     Peer peer;
     boolean stillConnected;
-    int downloadedPiece = 0;
    
     /**
      * Constructor for objects of class PeerSwingWorker.
@@ -32,6 +31,7 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
         this.processes = processes;
         this.peer = peer;
         this.stillConnected = true;
+        
     } 
     
     /**
@@ -105,7 +105,7 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
     public void communicate(DataInputStream input, DataOutputStream output, Socket peerSocket){
         int fileLength = processes.getTorrentInfo().file_length;
         CommunicationInfo commInfo = new CommunicationInfo(processes.getClient(), fileLength);
-        commInfo.requestedIndex = processes.downloadedPiece;
+        commInfo.requestedIndex = commInfo.client.nextRequest();
         commInfo.msgLength = -1;
         commInfo.torrentInfo = processes.getTorrentInfo();
         boolean firstRun = true;
@@ -114,8 +114,7 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
         long startTimeKeepAlive = System.nanoTime();
         long currentTimeKeepAlive;
         boolean receivedMessage = false;
-        try{
-          FileOutputStream fileOutput  = new FileOutputStream(processes.getFile(),true); 
+        try{ 
 
             while (!peerSocket.isClosed()&&processes.isStarted() && stillConnected){
                 try{
@@ -130,7 +129,7 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                     }
                     //checks if a message has been received in the past 120 seconds; if not, closes connections
                     if(!receivedMessage&&(double)currentTimeReceivedMessage/1000000000.0 > 120.0){ //not received any messages for over 2 minutes
-                        fileOutput.close();
+                        processes.getRandomAccessFile().close();
                         return;
                     }
                     
@@ -200,7 +199,7 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                             processes.getAnnouncer().updateUploaded(processes.uploaded);
                         }
                         else if (MessageHandler.getMessageID(commInfo.messageID) == MessageHandler.MessageID.PIECE){
-                            returnVal = MessageHandler.clientDownloadPiece(processes.getTorrentInfo(),  commInfo, processes, input, output, fileOutput);
+                            returnVal = MessageHandler.clientDownloadPiece(processes.getTorrentInfo(),  commInfo, processes, input, output, processes.getRandomAccessFile());
 
                             if (returnVal==1){ //download is complete
                                 commInfo.client.downloadComplete=true;
@@ -233,7 +232,7 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                     System.err.println("Reached end of file...");
                     System.err.println(peer);
                     e.printStackTrace();
-                    fileOutput.close();
+                    processes.getRandomAccessFile().close();
                     return;
                 }
                 catch(IOException e){
@@ -243,7 +242,7 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                     return;
                 }
            }
-           fileOutput.close();
+           processes.getRandomAccessFile().close();
         }
         catch(IOException e){
             System.err.println(e);

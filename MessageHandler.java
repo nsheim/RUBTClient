@@ -316,6 +316,10 @@ public class MessageHandler
               input.readFully(buffer);
               int pieceIndex = input.readInt();
               peer.setBitfieldValue(pieceIndex, true);
+              
+              commInfo.client.getPiece(pieceIndex).incrementRarity();
+              commInfo.client.getRarityQueue().updatePiecePriority(commInfo.client.getPiece(pieceIndex));
+              
               RUBTClient.debugPrint("Peer: " + peer.getIP()+ " -- " + peer.getBitfield());
               output.write(MessageHandler.P2PMessage.INTERESTED.bytes());
               output.flush();
@@ -511,7 +515,7 @@ public class MessageHandler
                 //send requested piece
                 byte[] bytesToSend = new byte[pieceLength];
                 for(int i = 0; i<pieceLength; i++){ 
-                    bytesToSend[i] = commInfo.client.getPieces()[pieceIndex][i+begin]; 
+                    bytesToSend[i] = commInfo.client.getPieces()[pieceIndex].getDataByte(i+begin); 
                 }
                 
                 output.writeInt(9+pieceLength);
@@ -576,27 +580,28 @@ public class MessageHandler
      * @param processes defines a current set of processes and properties that provide information about execution
      * @param input DataInputStream used to manage incoming information from the peer
      * @param output DataOutputStream used to manage outgoing information to the peer
-     * @param fileOutput FileOutputStream used for writing downloaded blocks to the file
+     * @param raFile RandomAccessFile used for writing downloaded blocks to the file
      * @return -1 if EOFException or IOException
      * @return 0 if downloading was a success, but download is not yet complete
      * @return 1 if download is complete
      */
     public static int clientDownloadPiece(TorrentInfo torrentInfo, CommunicationInfo commInfo, ProcessHandler processes,
-                                        DataInputStream input, DataOutputStream output, FileOutputStream fileOutput){
+                                        DataInputStream input, DataOutputStream output, RandomAccessFile raFile){
         RUBTClient.debugPrint("------------We can download now :D---------------"); 
         
           try{
             /*--------------------DOWNLOAD--------------------*/
             byte[] block;
-            int pieceLength = commInfo.msgLength-9;
+            int blockLength = commInfo.msgLength-9;
             int pieceIndex = input.readInt();
             int offset = input.readInt();
-            block = new byte[pieceLength];
+            block = new byte[blockLength];
 
-            RUBTClient.debugPrint("READ FIRST BLOCK +"+ offset+" of "+pieceLength+" bytes!!!!!!!!!!!!");
+            RUBTClient.debugPrint("READ FIRST BLOCK +"+ offset+" of "+blockLength+" bytes!!!!!!!!!!!!");
+            RUBTClient.debugPrint("piece length: " + torrentInfo.piece_length);
             int bytesRead = 0;
-            while (bytesRead < pieceLength) {
-                bytesRead += input.read(block, bytesRead, pieceLength-bytesRead);
+            while (bytesRead < blockLength) {
+                bytesRead += input.read(block, bytesRead, blockLength-bytesRead);
             }
             RUBTClient.debugPrint("  Total Read: " + bytesRead + " bytes");
             /*--------------------END DOWNLOAD--------------------*/
@@ -605,18 +610,23 @@ public class MessageHandler
             byte[] dataHash = sha1Bytes(block);
 
             boolean isValid = Arrays.equals(dataHash,torrentInfo.piece_hashes[pieceIndex].array());
+            
             if (!isValid){
-                System.err.println("ERROR: invalid piece index");
+                RUBTClient.debugPrint("DATA HASH: " + Arrays.toString(dataHash));
+                RUBTClient.debugPrint("PIECE HASH: " + Arrays.toString(torrentInfo.piece_hashes[pieceIndex].array()));
+            
+                RUBTClient.debugPrint("INVALID PIECE HASH. DOWNLOAD WAS UNSUCCESSFUL.");
+                System.err.println("ERROR: invalid piece index: " + pieceIndex);
                 return -1;
               }
-            //RUBTClient.debugPrint("DATA HASH: " + Arrays.toString(dataHash));
-            //RUBTClient.debugPrint("PIECE HASH: " + Arrays.toString(torrentInfo.piece_hashes[pieceIndex].array()));
             
             /*--------------------END VERIFY PIECE HASH--------------------*/
             
             /*--------------------WRITE BLOCK--------------------*/
-            commInfo.client.addPiece(pieceIndex, block, offset);
-            fileOutput.write(block);
+            commInfo.client.addBlock(pieceIndex, block, offset);
+            
+            commInfo.client.getPiece(pieceIndex).setVerified(isValid); //assumes we downloaded an entire piece... should edit this later
+            raFile.write(block);
             RUBTClient.debugPrint("-----------download this part successfully------------");
             /*--------------------END WRITE BLOCK--------------------*/
             
@@ -628,7 +638,8 @@ public class MessageHandler
             /*--------------------END UPDATE BITFIELD--------------------*/
             
             /*--------------------UPDATE COMM INFO--------------------*/
-            commInfo.requestedIndex++;
+            commInfo.client.getRarityQueue().dequeue();
+            commInfo.requestedIndex = commInfo.client.nextRequest();
             if(block.length < torrentInfo.piece_length){
                 processes.downloaded+= block.length;
             }
@@ -644,6 +655,7 @@ public class MessageHandler
             
             if (processes.downloaded >= torrentInfo.file_length) {
                 commInfo.client.downloadComplete=true;
+                commInfo.client.getRarityQueue().clear();
                 RUBTClient.debugPrint("Download complete!!!");
                 return 1;
             }

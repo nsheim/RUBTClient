@@ -35,4 +35,5 @@ public class CommunicationInfo {
           messageID = -1;
           event = TrackerRequest.EVENT_STARTED;
       }
+      
     }
