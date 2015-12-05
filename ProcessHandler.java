@@ -6,6 +6,7 @@ import java.io.RandomAccessFile;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Timer;
@@ -61,7 +62,7 @@ public class ProcessHandler {
             
             uploaded = 0;
             downloaded = 0;
-            left = torrentInfo.piece_hashes.length;
+            left = torrentInfo.file_length;
             downloadCompleteFromStart = false;
         
             addr = InetAddress.getLocalHost();
@@ -87,10 +88,11 @@ public class ProcessHandler {
                         byte[] piece = new byte[torrentInfo.piece_length];
                         
                         Integer numBytesRead = raFile.read(piece, pieceStartPosition, torrentInfo.piece_length);
+                        RUBTClient.debugPrint(Arrays.toString(piece));
                         if (numBytesRead!=null && numBytesRead.intValue() == torrentInfo.piece_length){
                             client.addBlock(i,piece,0);
                             client.setBitfieldValue(i,true);
-                            left--;
+                            left-=torrentInfo.piece_length;
                         }
                     }
                     catch(IOException e){
@@ -98,17 +100,18 @@ public class ProcessHandler {
                         e.printStackTrace();
                     }
                     catch(IndexOutOfBoundsException e){
+                        //this is fine, do nothing.
                     }
                 }
                 
                 try {
                     byte[] piece = new byte[lastPieceLength];
-                    Integer numBytesRead = raFile.read(piece, (torrentInfo.piece_hashes.length-1)*torrentInfo.piece_length, torrentInfo.piece_length);
+                    Integer numBytesRead = raFile.read(piece, (torrentInfo.piece_hashes.length-1)*torrentInfo.piece_length, lastPieceLength);
                     
                     if(numBytesRead!=null && numBytesRead == lastPieceLength){
                         client.addBlock(torrentInfo.piece_hashes.length - 1, piece, 0);
                         client.setBitfieldValue(torrentInfo.piece_hashes.length -1 , true);
-                        left--;
+                        left-=lastPieceLength;
                     }
                 }
                 catch(IOException e){
@@ -116,17 +119,19 @@ public class ProcessHandler {
                     e.printStackTrace();
                 }
                 catch(IndexOutOfBoundsException e){
-                    }
-            }
-            if(left==0) {
+                    //this is fine, do nothing
+                }
+                downloaded = (torrentInfo.file_length - left);
+                
+                if(left==0) {
                 downloadCompleteFromStart = true;
+                downloaded = torrentInfo.file_length;
+                }
+                else {
+                    downloadCompleteFromStart = false;
+                }
+                client.updateDownloadComplete(this);
             }
-            else {
-                downloadCompleteFromStart = false;
-            }
-            
-            client.updateDownloadComplete(this);
-            downloaded = left*torrentInfo.piece_length;
             
             RUBTClient.debugPrint("HOST ADDRESS: " + addr.getHostAddress());
             

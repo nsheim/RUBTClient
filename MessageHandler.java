@@ -230,8 +230,8 @@ public class MessageHandler
           RUBTClient.debugPrint("-----------Starting request file :D ------------");
           peer.choked = false;
           int len = 0; //the length of the file we are going to download this time.
-          if ((commInfo.fileLength - processes.downloaded) < torrentInfo.piece_length)
-                len = commInfo.fileLength - processes.downloaded;
+          if ((torrentInfo.file_length - processes.downloaded) < torrentInfo.piece_length)
+                len = torrentInfo.file_length - processes.downloaded;
           else{
                 len = torrentInfo.piece_length;
           }
@@ -557,11 +557,13 @@ public class MessageHandler
             output.writeInt(commInfo.requestedIndex);
             RUBTClient.debugPrint("Index Request: "+ commInfo.requestedIndex);
             output.writeInt(commInfo.downloadOffset);
-            if((commInfo.fileLength - processes.downloaded)<torrentInfo.piece_length)
-                  len = commInfo.fileLength - processes.downloaded;
-            else{
-                 len = torrentInfo.piece_length;
-              }
+            //if requested the last index
+            if (commInfo.requestedIndex==torrentInfo.piece_hashes.length-1){
+                len = torrentInfo.file_length - (torrentInfo.piece_hashes.length-1)*torrentInfo.piece_length;
+            }
+            else {
+                len = torrentInfo.piece_length;
+            }
             RUBTClient.debugPrint("Requested length "+len);
             output.writeInt(len);
             output.flush();
@@ -626,6 +628,7 @@ public class MessageHandler
             commInfo.client.addBlock(pieceIndex, block, offset);
             
             commInfo.client.getPiece(pieceIndex).setVerified(isValid); //assumes we downloaded an entire piece... should edit this later
+            raFile.seek(commInfo.requestedIndex*torrentInfo.piece_length);
             raFile.write(block);
             RUBTClient.debugPrint("-----------download this part successfully------------");
             /*--------------------END WRITE BLOCK--------------------*/
@@ -638,18 +641,17 @@ public class MessageHandler
             /*--------------------END UPDATE BITFIELD--------------------*/
             
             /*--------------------UPDATE COMM INFO--------------------*/
-            commInfo.client.getRarityQueue().dequeue();
-            commInfo.requestedIndex = commInfo.client.nextRequest();
+            
             if(block.length < torrentInfo.piece_length){
                 processes.downloaded+= block.length;
             }
             else{
-                processes.downloaded = commInfo.requestedIndex * torrentInfo.piece_length;
+                processes.downloaded += torrentInfo.piece_length;
             }
-            processes.left = commInfo.fileLength - processes.downloaded;
-            RUBTClient.debugPrint("Total length: "+commInfo.fileLength);
+            processes.left = torrentInfo.file_length - processes.downloaded;
+            RUBTClient.debugPrint("Total length: "+ torrentInfo.file_length);
             RUBTClient.debugPrint("Downloaded length: "+ processes.downloaded);
-            RUBTClient.debugPrint("Percent: "+ (int)(100*processes.downloaded/commInfo.fileLength) + "%");
+            RUBTClient.debugPrint("Percent: "+ (int)(100*processes.downloaded/torrentInfo.file_length) + "%");
             RUBTClient.debugPrint("total index "+ (torrentInfo.piece_hashes.length));
             /*--------------------END UPDATE COMM INFO--------------------*/
             
@@ -659,6 +661,10 @@ public class MessageHandler
                 RUBTClient.debugPrint("Download complete!!!");
                 return 1;
             }
+            
+            /*--------------------UPDATE REQUESTED INDEX, RARITY QUEUE--------------------*/
+            commInfo.client.getRarityQueue().dequeue();
+            commInfo.requestedIndex = commInfo.client.nextRequest();
         }
 
         catch (EOFException e){
