@@ -56,4 +56,7 @@ public class RarityQueue
     public void clear(){
         queue.clear();
     }
+    public boolean remove(Piece piece){
+        return queue.remove(piece);
+    }
 }

@@ -92,6 +92,7 @@ public class ProcessHandler {
                         if (numBytesRead!=null && numBytesRead.intValue() == torrentInfo.piece_length){
                             client.addBlock(i,piece,0);
                             client.setBitfieldValue(i,true);
+                            client.getRarityQueue().remove(client.getPiece(i));
                             left-=torrentInfo.piece_length;
                         }
                     }
