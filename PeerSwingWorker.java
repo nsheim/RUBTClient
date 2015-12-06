@@ -119,7 +119,7 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
         try{ 
 
             while (!peerSocket.isClosed()&&processes.isStarted() && stillConnected){
-                try{
+              
                 
                 try{
                     int PiecesReceive = 0;
@@ -132,13 +132,13 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                             if(PiecesReceive == 0){
                                 output.write(MessageHandler.P2PMessage.CHOKE.bytes());
                                 System.out.println("\n\n\n\n\n\nThis guy never upload to us, I chocked him!\n\n\n");
-                                java.lang.Thread.sleep(3000);
+
                             }
                             PiecesReceive = 0;
                             count++;
                         }
-                        catch(InterruptedException e){
-                            System.out.println(e);
+                        catch(IOException e){
+                            e.printStackTrace();
                         }
                     }
                     //sends a keep alive message every 90 seconds
