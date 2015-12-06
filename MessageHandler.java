@@ -359,7 +359,7 @@ public class MessageHandler
             DataOutputStream output;
             for (int i = 0; i<peerWorkers.size();i++){
                 Socket peerSocket = peerWorkers.get(i).peer.getSocket();
-                if (peerSocket!=null && !peerSocket.isClosed() && peerWorkers.get(i).peer.validHandshake){
+                if (peerSocket!=null && !peerSocket.isClosed() && peerWorkers.get(i).peer.validHandshake && peerWorkers.get(i).peer.receivedFirstHave){
                     output = new DataOutputStream(peerWorkers.get(i).peer.getSocket().getOutputStream());
                     output.write(MessageHandler.P2PMessage.HAVE.bytes());
                     output.writeInt(pieceIndex);
@@ -409,6 +409,7 @@ public class MessageHandler
                     }
                 }
             }
+            peer.receivedFirstHave = true;
           }
           catch (EOFException e){
               RUBTClient.debugPrint("Reached end of file...");
@@ -511,7 +512,7 @@ public class MessageHandler
         try {
             int pieceIndex = input.readInt();
             
-            //RUBTClient.debugPrint("Peer Requested index: " + pieceIndex);
+            RUBTClient.debugPrint("Peer Requested index: " + pieceIndex);
             //byte[] clientBitfieldBytes = Bitfield.toByteArray(commInfo.client.getBitfield());
             if(!commInfo.client.getBitfield()[pieceIndex]){
                 RUBTClient.debugPrint("We don't have piece at index: " + pieceIndex);
@@ -521,7 +522,7 @@ public class MessageHandler
                 
                 int begin = input.readInt();
                 int pieceLength = input.readInt();
-                //RUBTClient.debugPrint("Begin: " + begin + " -- Length: " + pieceLength);
+                RUBTClient.debugPrint("Begin: " + begin + " -- Length: " + pieceLength);
                 //send requested piece
                 byte[] bytesToSend = new byte[pieceLength];
                 for(int i = 0; i<pieceLength; i++){ 
@@ -535,8 +536,8 @@ public class MessageHandler
                 output.write(bytesToSend);
                 
                 processes.uploaded+=pieceLength;
-                //RUBTClient.debugPrint("UPLOADED INDEX: " + pieceIndex);
-                //RUBTClient.debugPrint("UPLOADED: " + processes.uploaded);
+                RUBTClient.debugPrint("UPLOADED INDEX: " + pieceIndex);
+                RUBTClient.debugPrint("UPLOADED: " + processes.uploaded);
             }
                 return 0;
            
@@ -658,7 +659,7 @@ public class MessageHandler
             }
             else{
                 processes.downloaded += torrentInfo.piece_length;
-            }
+            }*/
             processes.left = torrentInfo.file_length - processes.downloaded;
             RUBTClient.debugPrint("Total length: "+ torrentInfo.file_length);
             RUBTClient.debugPrint("Downloaded length: "+ processes.downloaded);
@@ -677,10 +678,9 @@ public class MessageHandler
             
             /*--------------------UPDATE REQUESTED INDEX, RARITY QUEUE--------------------*/
             RUBTClient.debugPrint(commInfo.client.getRarityQueue().toString());
-             //commInfo.client.getRarityQueue().remove(commInfo.requestedIndex);
             Piece temp = commInfo.client.getPieces()[commInfo.requestedIndex];
             commInfo.client.getRarityQueue().remove(temp);
-            //commInfo.client.getRarityQueue().dequeue();
+            
             commInfo.requestedIndex = commInfo.client.nextRequest();
         }
 
