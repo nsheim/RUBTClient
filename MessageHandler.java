@@ -359,12 +359,14 @@ public class MessageHandler
             DataOutputStream output;
             for (int i = 0; i<peerWorkers.size();i++){
                 Socket peerSocket = peerWorkers.get(i).peer.getSocket();
-                if (peerSocket!=null && !peerSocket.isClosed() && peerWorkers.get(i).peer.validHandshake && peerWorkers.get(i).peer.receivedFirstHave){
+                if (peerSocket!=null && !peerSocket.isClosed() && peerWorkers.get(i).peer.validHandshake 
+                && peerWorkers.get(i).peer.receivedFirstHave && !peerWorkers.get(i).peer.getSentHave()[pieceIndex]){
                     output = new DataOutputStream(peerWorkers.get(i).peer.getSocket().getOutputStream());
                     output.write(MessageHandler.P2PMessage.HAVE.bytes());
                     output.writeInt(pieceIndex);
                     output.flush(); 
               
+                    peerWorkers.get(i).peer.getSentHave()[i] = true;
                     RUBTClient.debugPrint("Sent have message for index " + pieceIndex + " to peer: " + peerWorkers.get(i).peer);
                 }
             }
@@ -400,16 +402,18 @@ public class MessageHandler
         try{
             for (int i = 0; i<processes.getClient().getBitfield().length; i++){
                 if (processes.getClient().getBitfield()[i]){
-                    if (peerSocket!=null && !peerSocket.isClosed()){
+                    if (peerSocket!=null && !peerSocket.isClosed() && !peer.getSentHave()[i]){
                         output.write(MessageHandler.P2PMessage.HAVE.bytes());
                         output.writeInt(i);
                         output.flush(); 
-                  
+                        peer.getSentHave()[i]=true;
                         RUBTClient.debugPrint("Sent have message for index " + i + " to peer: " + peer);
                     }
                 }
             }
             peer.receivedFirstHave = true;
+            RUBTClient.debugPrint(peer.toString());
+            RUBTClient.debugPrint("received first have.");
           }
           catch (EOFException e){
               RUBTClient.debugPrint("Reached end of file...");
@@ -442,6 +446,13 @@ public class MessageHandler
             output.write(P2PMessage.BITFIELD.msgWithLength(clientBitfieldBytes.length));
             output.write(clientBitfieldBytes);
             RUBTClient.debugPrint("bitfield sent");
+            
+            for (int i = 0; i<commInfo.client.getBitfield().length; i++){
+                if (commInfo.client.getBitfield()[i]){
+                    peer.getSentHave()[i]=true;
+                }
+            }
+            
             return 0;
         } catch (IOException ex) {
             Logger.getLogger(MessageHandler.class.getName()).log(Level.SEVERE, null, ex);

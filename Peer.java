@@ -22,6 +22,7 @@ public class Peer
     private String ip;
     private int port;
     private boolean[] bitfield;
+    private boolean[] sentHave;
     private Socket socket;
     
     boolean choked;
@@ -85,6 +86,7 @@ public class Peer
      */
     public void initBitfield(TorrentInfo torrentInfo){
         bitfield = new boolean[torrentInfo.piece_hashes.length];
+        sentHave = new boolean[torrentInfo.piece_hashes.length];
     }
     /**
      * Sets the bitfield of this peer.
@@ -100,6 +102,10 @@ public class Peer
      */
     public void setBitfieldValue(int index, boolean value){
         bitfield[index] = value;
+    }
+    
+    public boolean[] getSentHave(){
+        return sentHave;
     }
     
     /**
