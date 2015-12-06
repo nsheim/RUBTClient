@@ -61,6 +61,7 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
      * @return true if connection was successful, false otherwise
      */
     public boolean connectToPeer(){
+        peer.initBitfield(processes.getTorrentInfo());
         byte[] myInfoHashBytes = processes.getTorrentInfo().info_hash.array();
         Socket peerSocket;
         DataInputStream input;
@@ -87,7 +88,7 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                 peerSocket.close();
         }
         catch (IOException ioE){
-            System.err.println(ioE);
+            System.err.println(peer.toString());
             ioE.printStackTrace();
             return false;
         }
@@ -148,6 +149,14 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                         MessageHandler.sendFirstHave(commInfo, processes, peer, peerSocket, output);
                         firstRun = false;
                     }
+                    
+                    if(firstRun || !peer.receivedFirstHave){
+                              /*MessageHandler.sendBitfield(commInfo, peer, input, output);*/
+                              output.writeInt(0);
+                              MessageHandler.sendFirstHave(commInfo, processes, peer, peerSocket, output);
+                              firstRun = false;
+                        }
+                    
                     RUBTClient.debugPrint("-------------Started? "+ processes.isStarted());
                     /*--------------READ MESSAGE LENGTH-----------------*/
                     byte tmp[] = new byte[4];
@@ -168,12 +177,7 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                         
                         int returnVal = -999;
 
-                        if(firstRun){
-                              /*MessageHandler.sendBitfield(commInfo, peer, input, output);*/
-                              output.writeInt(0);
-                              MessageHandler.sendFirstHave(commInfo, processes, peer, peerSocket, output);
-                              firstRun = false;
-                        }
+                        
 
                         //if client is downloading
                         if (MessageHandler.getMessageID(commInfo.messageID) == MessageHandler.MessageID.CHOKE){
