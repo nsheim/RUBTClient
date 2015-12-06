@@ -469,6 +469,11 @@ public class MessageHandler
               int numPieces = commInfo.torrentInfo.piece_hashes.length;
               Bitfield peerBitfield = new Bitfield(numPieces, buffer);
               peer.setBitfield(peerBitfield.toBooleanArray());
+              
+              for (int i = 0; i < peer.getBitfield().length; i++){
+                  commInfo.client.getPiece(i).incrementRarity();
+                  commInfo.client.getRarityQueue().updatePiecePriority(commInfo.client.getPiece(i));
+              }
               //RUBTClient.debugPrint("Peer bitfield: " + peerBitfield);
               //RUBTClient.debugPrint("Peer bitfield boolean: " + Arrays.toString(peerBitfield.toBooleanArray()));
               
@@ -506,7 +511,7 @@ public class MessageHandler
         try {
             int pieceIndex = input.readInt();
             
-            RUBTClient.debugPrint("Peer Requested index: " + pieceIndex);
+            //RUBTClient.debugPrint("Peer Requested index: " + pieceIndex);
             //byte[] clientBitfieldBytes = Bitfield.toByteArray(commInfo.client.getBitfield());
             if(!commInfo.client.getBitfield()[pieceIndex]){
                 RUBTClient.debugPrint("We don't have piece at index: " + pieceIndex);
@@ -516,7 +521,7 @@ public class MessageHandler
                 
                 int begin = input.readInt();
                 int pieceLength = input.readInt();
-                RUBTClient.debugPrint("Begin: " + begin + " -- Length: " + pieceLength);
+                //RUBTClient.debugPrint("Begin: " + begin + " -- Length: " + pieceLength);
                 //send requested piece
                 byte[] bytesToSend = new byte[pieceLength];
                 for(int i = 0; i<pieceLength; i++){ 
@@ -530,8 +535,8 @@ public class MessageHandler
                 output.write(bytesToSend);
                 
                 processes.uploaded+=pieceLength;
-                RUBTClient.debugPrint("UPLOADED INDEX: " + pieceIndex);
-                RUBTClient.debugPrint("UPLOADED: " + processes.uploaded);
+                //RUBTClient.debugPrint("UPLOADED INDEX: " + pieceIndex);
+                //RUBTClient.debugPrint("UPLOADED: " + processes.uploaded);
             }
                 return 0;
            

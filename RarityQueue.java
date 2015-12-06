@@ -19,7 +19,12 @@ public class RarityQueue
         comparer = new Comparator<Piece>(){
             public int compare (Piece x, Piece y){
                 if(x.getRarity() > y.getRarity()) return 1;
-                if(x.getRarity() == y.getRarity()) return 0;
+                if(x.getRarity() == y.getRarity()) {
+                    double rand = Math.random();
+                    if (rand <= .33) return -1;
+                    else if (rand <= .66) return 0;
+                    return 1;
+                }
                 return -1;
             }
         };
