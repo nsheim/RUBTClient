@@ -315,6 +315,11 @@ public class MessageHandler
               byte[] buffer = new byte[bytes];
               input.readFully(buffer);
               int pieceIndex = input.readInt();
+              
+              if (!peer.getBitfield()[pieceIndex]){
+                  commInfo.client.getPiece(pieceIndex).incrementRarity();
+                  commInfo.client.getRarityQueue().updatePiecePriority(commInfo.client.getPiece(pieceIndex));
+              }
               peer.setBitfieldValue(pieceIndex, true);
               
               commInfo.client.getPiece(pieceIndex).incrementRarity();
@@ -673,8 +678,8 @@ public class MessageHandler
             return -1;
         }
           catch(IOException e) {
-              System.err.println(e);
-              e.printStackTrace();
+              //System.err.println(e);
+              //e.printStackTrace();
               return -1;
         }
         return 0;

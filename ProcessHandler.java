@@ -84,16 +84,22 @@ public class ProcessHandler {
                
                 for (int i = 0; i < torrentInfo.piece_hashes.length - 1; i++){
                     try {
-                        int pieceStartPosition = i * torrentInfo.piece_length;
                         byte[] piece = new byte[torrentInfo.piece_length];
                         
-                        Integer numBytesRead = raFile.read(piece, pieceStartPosition, torrentInfo.piece_length);
-                        RUBTClient.debugPrint(Arrays.toString(piece));
+                        Integer numBytesRead = raFile.read(piece, 0, torrentInfo.piece_length);
+              
                         if (numBytesRead!=null && numBytesRead.intValue() == torrentInfo.piece_length){
-                            client.addBlock(i,piece,0);
-                            client.setBitfieldValue(i,true);
-                            client.getRarityQueue().remove(client.getPiece(i));
-                            left-=torrentInfo.piece_length;
+                            //make sure the piece has a valid hash before deciding that we have it already
+                            byte[] pieceHash = MessageHandler.sha1Bytes(piece);
+                            boolean isValid = Arrays.equals(pieceHash,torrentInfo.piece_hashes[i].array());
+                            
+                            if (isValid){
+                                client.addBlock(i,piece,0);
+                                client.setBitfieldValue(i,true);
+                                client.getRarityQueue().remove(client.getPiece(i));
+                                left-=torrentInfo.piece_length;
+                            }
+                            
                         }
                     }
                     catch(IOException e){
@@ -102,6 +108,7 @@ public class ProcessHandler {
                     }
                     catch(IndexOutOfBoundsException e){
                         //this is fine, do nothing.
+                        //means that the file has no data at this index
                     }
                 }
                 
