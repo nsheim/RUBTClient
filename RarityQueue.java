@@ -45,8 +45,7 @@ public class RarityQueue
             rarestPiece = queue.take();
         }
         catch(InterruptedException e){
-            System.out.println(e);
-            e.printStackTrace();
+            //this is fine, do nothing
         }
         return rarestPiece;
     }
