@@ -114,13 +114,13 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
         long currentTimeReceivedMessage;
         long startTimeKeepAlive = System.nanoTime();
         long currentTimeKeepAlive;
-        long startTime;
+        long startTime = System.nanoTime();
         boolean receivedMessage = false;
         try{ 
 
             while (!peerSocket.isClosed()&&processes.isStarted() && stillConnected){
                 try{
-                   startTime = System.nanoTime();
+                
                 try{
                     int PiecesReceive = 0;
                     int count = 1;
