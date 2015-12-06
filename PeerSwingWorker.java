@@ -114,13 +114,33 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
         long currentTimeReceivedMessage;
         long startTimeKeepAlive = System.nanoTime();
         long currentTimeKeepAlive;
+        long startTime;
         boolean receivedMessage = false;
         try{ 
 
             while (!peerSocket.isClosed()&&processes.isStarted() && stillConnected){
                 try{
+                   startTime = System.nanoTime();
+                try{
+                    int PiecesReceive = 0;
+                    int count = 1;
                     currentTimeReceivedMessage = System.nanoTime()-startTimeReceivedMessage;
                     currentTimeKeepAlive = System.nanoTime()-startTimeKeepAlive;
+                    
+                    if((System.nanoTime()-startTime)/1000000000.0 > (count*30.0)){
+                        try{
+                            if(PiecesReceive == 0){
+                                output.write(MessageHandler.P2PMessage.CHOKE.bytes());
+                                System.out.println("\n\n\n\n\n\nThis guy never upload to us, I chocked him!\n\n\n");
+                                java.lang.Thread.sleep(3000);
+                            }
+                            PiecesReceive = 0;
+                            count++;
+                        }
+                        catch(InterruptedException e){
+                            System.out.println(e);
+                        }
+                    }
                     //sends a keep alive message every 90 seconds
                     if((double)currentTimeKeepAlive/1000000000.0 > 90.0){
                         RUBTClient.debugPrint("Sending keep alive message to " + peer);
@@ -204,7 +224,7 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                         }
                         else if (MessageHandler.getMessageID(commInfo.messageID) == MessageHandler.MessageID.PIECE){
                             returnVal = MessageHandler.clientDownloadPiece(processes.getTorrentInfo(),  commInfo, processes, input, output, processes.getRandomAccessFile());
-
+                            PiecesReceive++;
                             if (returnVal==1){ //download is complete
                                 commInfo.client.downloadComplete=true;
                                 
