@@ -46,13 +46,13 @@ public class RUBTClient
             torrentInfo = new TorrentInfo(data);
             
             //create a new file if it does not already exist
-            if (!file.exists() || file.isDirectory()){
+            if (!file.exists()){
                 file.createNewFile();
                 fileAlreadyExisted = false;
             }
             
             
-            if(file.exists()&& !file.isDirectory()){
+            if(file.exists()){
                 if (fileAlreadyExisted){
                     System.out.println("\n\n\n\n\n-------File Already Exists!!!!!!!!!Will Continue Download--------");
                 }

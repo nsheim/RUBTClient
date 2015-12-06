@@ -652,7 +652,8 @@ public class MessageHandler
             
             /*--------------------UPDATE COMM INFO--------------------*/
             
-            if(block.length < torrentInfo.piece_length){
+            processes.downloaded+=block.length;
+            /*if(block.length < torrentInfo.piece_length){
                 processes.downloaded+= block.length;
             }
             else{
@@ -666,6 +667,8 @@ public class MessageHandler
             /*--------------------END UPDATE COMM INFO--------------------*/
             
             if (processes.downloaded >= torrentInfo.file_length) {
+                processes.downloaded = torrentInfo.file_length;
+                processes.left = 0;
                 commInfo.client.downloadComplete=true;
                 commInfo.client.getRarityQueue().clear();
                 RUBTClient.debugPrint("Download complete!!!");
@@ -673,7 +676,11 @@ public class MessageHandler
             }
             
             /*--------------------UPDATE REQUESTED INDEX, RARITY QUEUE--------------------*/
-            commInfo.client.getRarityQueue().dequeue();
+            RUBTClient.debugPrint(commInfo.client.getRarityQueue().toString());
+             //commInfo.client.getRarityQueue().remove(commInfo.requestedIndex);
+            Piece temp = commInfo.client.getPieces()[commInfo.requestedIndex];
+            commInfo.client.getRarityQueue().remove(temp);
+            //commInfo.client.getRarityQueue().dequeue();
             commInfo.requestedIndex = commInfo.client.nextRequest();
         }
 

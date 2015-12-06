@@ -101,14 +101,17 @@ public class ProcessHandler {
                             }
                             
                         }
+                        else {
+                            RUBTClient.debugPrint("Missing piece at index: " + i);
+                        }
                     }
                     catch(IOException e){
                         System.err.println(e);
                         e.printStackTrace();
                     }
                     catch(IndexOutOfBoundsException e){
-                        //this is fine, do nothing.
-                        //means that the file has no data at this index
+                        System.err.println(e);
+                        e.printStackTrace();
                     }
                 }
                 
@@ -121,6 +124,9 @@ public class ProcessHandler {
                         client.setBitfieldValue(torrentInfo.piece_hashes.length -1 , true);
                         left-=lastPieceLength;
                     }
+                    else {
+                        RUBTClient.debugPrint("Missing piece at index: " + (torrentInfo.piece_hashes.length -1) );
+                    }
                 }
                 catch(IOException e){
                     System.err.println(e);
@@ -131,16 +137,15 @@ public class ProcessHandler {
                 }
                 downloaded = (torrentInfo.file_length - left);
                 
-                if(left==0) {
-                downloadCompleteFromStart = true;
-                downloaded = torrentInfo.file_length;
+                if(left<=0) {
+                    downloadCompleteFromStart = true;
+                    downloaded = torrentInfo.file_length;
                 }
                 else {
                     downloadCompleteFromStart = false;
                 }
                 client.updateDownloadComplete(this);
             }
-            
             RUBTClient.debugPrint("HOST ADDRESS: " + addr.getHostAddress());
             
         } catch (UnknownHostException ex) {

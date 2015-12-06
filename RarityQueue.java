@@ -63,4 +63,21 @@ public class RarityQueue
     public boolean remove(Piece piece){
         return queue.remove(piece);
     }
+    public boolean remove(int pieceIndex){
+        for (Piece piece:queue){
+            if(piece.getIndex()==pieceIndex){
+                return queue.remove(piece);
+            }
+        }
+        return false;
+    }
+    
+    @Override
+    public String toString(){
+        String str = "";
+        for (Piece piece:queue){
+            str+= "Piece at index: " + piece.getIndex() + " with rarity: " + piece.getRarity() + "\n";
+        }
+        return str;
+    }
 }
