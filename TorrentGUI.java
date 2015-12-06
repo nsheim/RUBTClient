@@ -5,6 +5,7 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
+import javax.swing.SwingUtilities;
 /**
  * TorrentGUI.java
  * 
@@ -80,14 +81,32 @@ public class TorrentGUI extends JFrame{
         setSize(400, 200);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        //setContentPane(progressBar);
+        //pack();
         setVisible(true);
        
-       while(processes.downloaded < processes.file_length){
-            int value = (int)(processes.downloaded/processes.file_length);
-            updateBar(value);
-            progressBar.repaint();
-            this.repaint();
+       while(processes.left > 0){
+            
+           int value = (int)(processes.downloaded*100/(processes.downloaded+processes.left));
+           final int percent = value;
+           //System.out.println("-----------"+processes.downloaded+"---------");
+           //System.out.println("-----------"+processes.left+"---------");
+           //System.out.println("-----------"+percent+"---------");
+           try{
+                 SwingUtilities.invokeLater(new Runnable()
+                 {
+                   public void run(){
+                      updateBar(percent);
+                   }
+                 });
+                java.lang.Thread.sleep(100);
+            }catch(InterruptedException e){
+            }
+            
        }
-    
+       
+       
    }
+
+
 }
