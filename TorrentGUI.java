@@ -24,6 +24,7 @@ public class TorrentGUI extends JFrame{
     JPanel panel;
     JButton btnStartStop;
     JButton btnExitContinue;
+    JButton done;
     JProgressBar progressBar;
     
     /**
@@ -85,7 +86,7 @@ public class TorrentGUI extends JFrame{
         //pack();
         setVisible(true);
        
-       while(processes.left > 0){
+       while(processes.left >= 0){
             
            int value = (int)(processes.downloaded*100/(processes.downloaded+processes.left));
            final int percent = value;
@@ -102,6 +103,11 @@ public class TorrentGUI extends JFrame{
                 java.lang.Thread.sleep(100);
             }catch(InterruptedException e){
             }
+            if(processes.left == 0){
+                btnExitContinue.setText("Done!!!");
+                break;
+            }
+         
             
        }
        
