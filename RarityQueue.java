@@ -41,8 +41,8 @@ public class RarityQueue
         return queue.add(piece);
     }
     public boolean updatePiecePriority(Piece piece){
-        queue.remove(piece);
-        return queue.add(piece);
+        if(queue.remove(piece)) return queue.add(piece);
+        return false;
     }
     public Piece dequeue(){
         Piece rarestPiece = null;

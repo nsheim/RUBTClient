@@ -27,6 +27,7 @@ public class Peer
     boolean choked;
     boolean interested;
     boolean validHandshake;
+    boolean receivedFirstHave;
     /**
      * Constructor for objects of class Peer.
      * @param peer_id the peer id of this peer
@@ -40,6 +41,7 @@ public class Peer
         choked = true;
         interested = false;
         validHandshake = false;
+        receivedFirstHave = false;
     }
     
     /**

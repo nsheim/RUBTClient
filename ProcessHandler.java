@@ -97,6 +97,7 @@ public class ProcessHandler {
                                 client.addBlock(i,piece,0);
                                 client.setBitfieldValue(i,true);
                                 client.getRarityQueue().remove(client.getPiece(i));
+                                RUBTClient.debugPrint("Piece: " + i + " removed from queue.");
                                 left-=torrentInfo.piece_length;
                             }
                             
