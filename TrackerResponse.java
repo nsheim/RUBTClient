@@ -211,9 +211,9 @@ public class TrackerResponse
       }
       ArrayList<Peer> localPeers = new ArrayList();
       for (Peer peer:peerList) {
-          if (peer.getPeerID().startsWith("RU") || peer.getPeerID().startsWith("-RU")){
+          //if (peer.getPeerID().startsWith("RU") || peer.getPeerID().startsWith("-RU")){
               localPeers.add(peer);
-          }
+          //}
           /*if (peer.getIP().equals("128.6.171.132")||peer.getIP().equals("128.6.171.131")){
               localPeers.add(peer);
           }*/

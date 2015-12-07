@@ -72,12 +72,12 @@ public class RarityQueue
         return false;
     }
     
-    @Override
+    /*@Override
     public String toString(){
         String str = "";
         for (Piece piece:queue){
             str+= "Piece at index: " + piece.getIndex() + " with rarity: " + piece.getRarity() + "\n";
         }
         return str;
-    }
+    }*/
 }

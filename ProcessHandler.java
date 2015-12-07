@@ -45,6 +45,7 @@ public class ProcessHandler {
     int downloaded;
     int left;
     boolean downloadCompleteFromStart;
+    int [] byte15 = new int [100];
     
     /**
      * Constructor for objects of class ProcessHandler.
@@ -199,11 +200,15 @@ public class ProcessHandler {
         RUBTClient.debugPrint(getTorrentInfo().announce_url.toString());
 
         scheduleTimer();
-
+        for(int i = 0;i<100;i++){
+            byte15[i]=0;
+        }
+        
+        
         localPeers = announcer.getLocalPeers();
         //create and start peerswingworkers
         for (int i = 0; i < localPeers.size(); i++){
-            peerWorkers.add(new PeerSwingWorker(this,localPeers.get(i)));
+            peerWorkers.add(new PeerSwingWorker(this,localPeers.get(i),i));
             peerWorkers.get(i).execute();
         }
     }

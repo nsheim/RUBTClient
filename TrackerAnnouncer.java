@@ -223,10 +223,12 @@ public class TrackerAnnouncer extends TimerTask {
         }
         //remove old peers from peerWorkers
         peerWorkers.removeAll(prevOnlySet);
-
+        
+        int i=peerWorkers.size();
         //add connections to new peers
         for (Peer peer : currentOnlySet) {
-            PeerSwingWorker peerWorker = new PeerSwingWorker(processes, peer);
+            i++;
+            PeerSwingWorker peerWorker = new PeerSwingWorker(processes, peer,i);
             peerWorker.execute();
             peerWorkers.add(peerWorker);
         }
@@ -236,7 +238,7 @@ public class TrackerAnnouncer extends TimerTask {
         }
 
         RUBTClient.debugPrint("Updated peerlist: ");
-        for (int i = 0; i < peerWorkers.size(); i++) {
+        for (int j = 0; j < peerWorkers.size(); j++) {
             RUBTClient.debugPrint("\t" + peerWorkers.get(i).peer);
         }
         processes.updatePeerWorkers(peerWorkers);
@@ -300,8 +302,10 @@ public class TrackerAnnouncer extends TimerTask {
         }
         //add new connections
         Set<String> newOnlyKeySet = newOnlyDict.keySet();
+        int i = peerWorkers.size();
         for (String peerID : newOnlyKeySet) {
-            PeerSwingWorker peerWorker = new PeerSwingWorker(processes, newOnlyDict.get(peerID));
+            i++;
+            PeerSwingWorker peerWorker = new PeerSwingWorker(processes, newOnlyDict.get(peerID),i);
             peerWorker.execute();
             peerWorkers.add(peerWorker);
         }
