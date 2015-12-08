@@ -134,31 +134,22 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
             int PiecesReceive = 0;
             int count = 1;
             while (!peerSocket.isClosed()&&processes.isStarted() && stillConnected){
-              
+                if(choked == true){
+                    System.out.println("\n\n\n\n\n\n"+peer.getIP()+" Choked, but still in loop.\n\n\n\n\n");
+                }
                 
                 try{
                     
                     currentTimeReceivedMessage = System.nanoTime()-startTimeReceivedMessage;
                     currentTimeKeepAlive = System.nanoTime()-startTimeKeepAlive;
                     
-                    if((System.nanoTime()-startTime)/1000000000.0 > (count*30.0)){
-                        try{
-                            if(PiecesReceive == 0){
-                                output.write(MessageHandler.P2PMessage.CHOKE.bytes());
-                                System.out.println("\n\n\n\n\n\n"+peer.getIP()+" never upload to us, I chocked him!\n\n\n");
-                                choked = true;
-                            }
-                            PiecesReceive = 0;
-                            count++;
-                        }
-                        catch(IOException e){
-                            e.printStackTrace();
-                        }
-                    }
                     
+                    
+                    //optimistic unchking.
                     if((System.nanoTime()-checkTime)/1000000000.0 > 15){
                         
-                        System.out.println("\n\n\n\nBytes in 15 s of "+peer.getIP()+" is "+byte15+"\n\n\n\n\n\n");int []current = new int [100];
+                        System.out.println("\n\n\n\nBytes in 15 s of "+peer.getIP()+" is "+byte15+"\n\n\n\n\n\n");
+                        int []current = new int [100];
                         current = processes.byte15;
                         for(int j =0;j<99;j++){
                             processes.byte15[j]=0;
@@ -172,6 +163,8 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                                 output.flush();
                                 if(choked == true){
                                     System.out.println("\n\n\n\n\n\nWe Optimistically Unchoked peer "+peer.getIP()+"\n\n\n\n\n\n");
+                                    choked=false;
+                                    startTime = System.nanoTime();
                                 }
                                 test = true;
                                 break;
@@ -185,6 +178,26 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                         checkTime = System.nanoTime();
                         byte15=0;
                     }
+                    
+                    
+                    
+                    //get rid of free riders.
+                    if((System.nanoTime()-startTime)/1000000000.0 > 30.0){
+                        try{
+                            if(PiecesReceive == 0){
+                                output.write(MessageHandler.P2PMessage.CHOKE.bytes());
+                                System.out.println("\n\n\n\n\n\n"+peer.getIP()+" never upload to us, I chocked him!\n\n\n");
+                                choked = true;
+                            }
+                            PiecesReceive = 0;
+                            startTime=System.nanoTime();
+                        }
+                        catch(IOException e){
+                            e.printStackTrace();
+                        }
+                    }
+                    
+                    
                     
                     
                     //sends a keep alive message every 90 seconds
@@ -231,6 +244,7 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                     
                     RUBTClient.debugPrint("Bytes read: " + Arrays.toString(tmp));
                     commInfo.msgLength = java.nio.ByteBuffer.wrap(tmp).getInt();
+                    
                     processes.byte15[ID]+=commInfo.msgLength;
                     byte15+=commInfo.msgLength;
 
