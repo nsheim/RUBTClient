@@ -1,9 +1,8 @@
 
 /**
  * Write a description of class Piece here.
- * 
- * @author (your name) 
- * @version (a version number or a date)
+ *  @author Shuhan Liu (sl1041) 154007082
+ * @author Nicole Heimbach (nsh43) 153002353
  */
 public class Piece
 {
@@ -54,6 +53,7 @@ public class Piece
        this.rarity = rarity;
    }
    public int getRarity(){
+       
         return rarity;
    }
    public void incrementRarity(){

@@ -413,7 +413,7 @@ public class MessageHandler
             }
             peer.receivedFirstHave = true;
             RUBTClient.debugPrint(peer.toString());
-            RUBTClient.debugPrint("received first have.");
+            RUBTClient.debugPrint("Sent first have.");
           }
           catch (EOFException e){
               RUBTClient.debugPrint("Reached end of file...");
@@ -421,7 +421,7 @@ public class MessageHandler
               return -1;
           }
           catch(IOException e){
-              System.err.println(e);
+              System.err.println(peer);
               e.printStackTrace();
               return -1;
           }
@@ -518,8 +518,8 @@ public class MessageHandler
      * @return -1 if IOException
      * @return 0 if success
      */
-    public static int peerRequest(TorrentInfo torrentInfo, CommunicationInfo commInfo, ProcessHandler processes, Socket peerSocket, 
-                                        DataInputStream input, DataOutputStream output){
+    public static int peerRequest(TorrentInfo torrentInfo, CommunicationInfo commInfo, ProcessHandler processes, 
+                                    Peer peer, Socket peerSocket, DataInputStream input, DataOutputStream output){
         try {
             int pieceIndex = input.readInt();
             
@@ -545,6 +545,8 @@ public class MessageHandler
                 output.writeInt(pieceIndex);
                 output.writeInt(begin);
                 output.write(bytesToSend);
+                
+                peer.downloaded+=bytesToSend.length;
                 
                 processes.uploaded+=pieceLength;
                 RUBTClient.debugPrint("UPLOADED INDEX: " + pieceIndex);
@@ -610,7 +612,7 @@ public class MessageHandler
      * @return 1 if download is complete
      */
     public static int clientDownloadPiece(TorrentInfo torrentInfo, CommunicationInfo commInfo, ProcessHandler processes,
-                                        DataInputStream input, DataOutputStream output, RandomAccessFile raFile){
+                                        Peer peer, DataInputStream input, DataOutputStream output, RandomAccessFile raFile){
         RUBTClient.debugPrint("------------We can download now :D---------------"); 
         
           try{
@@ -665,6 +667,7 @@ public class MessageHandler
             /*--------------------UPDATE COMM INFO--------------------*/
             
             processes.downloaded+=block.length;
+            peer.uploaded+=block.length;
             /*if(block.length < torrentInfo.piece_length){
                 processes.downloaded+= block.length;
             }

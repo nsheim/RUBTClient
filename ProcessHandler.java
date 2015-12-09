@@ -30,6 +30,7 @@ public class ProcessHandler {
     private RandomAccessFile raFile;
     private Timer trackerTimer;
     private TrackerAnnouncer announcer;
+    private ChokingHandler chokingHandler;
     
     private boolean started;
     
@@ -45,7 +46,6 @@ public class ProcessHandler {
     int downloaded;
     int left;
     boolean downloadCompleteFromStart;
-    int [] byte15 = new int [100];
     
     /**
      * Constructor for objects of class ProcessHandler.
@@ -56,6 +56,7 @@ public class ProcessHandler {
         try {
             this.torrentInfo = torrentInfo;
             this.file = file;
+            chokingHandler = new ChokingHandler(this);
             
             raFile = new RandomAccessFile(file, "rw");
             
@@ -98,13 +99,13 @@ public class ProcessHandler {
                                 client.addBlock(i,piece,0);
                                 client.setBitfieldValue(i,true);
                                 client.getRarityQueue().remove(client.getPiece(i));
-                                RUBTClient.debugPrint("Piece: " + i + " removed from queue.");
+                                //RUBTClient.debugPrint("Piece: " + i + " removed from queue.");
                                 left-=torrentInfo.piece_length;
                             }
                             
                         }
                         else {
-                            RUBTClient.debugPrint("Missing piece at index: " + i);
+                            //RUBTClient.debugPrint("Missing piece at index: " + i);
                         }
                     }
                     catch(IOException e){
@@ -127,7 +128,7 @@ public class ProcessHandler {
                         left-=lastPieceLength;
                     }
                     else {
-                        RUBTClient.debugPrint("Missing piece at index: " + (torrentInfo.piece_hashes.length -1) );
+                        //RUBTClient.debugPrint("Missing piece at index: " + (torrentInfo.piece_hashes.length -1) );
                     }
                 }
                 catch(IOException e){
@@ -200,17 +201,16 @@ public class ProcessHandler {
         RUBTClient.debugPrint(getTorrentInfo().announce_url.toString());
 
         scheduleTimer();
-        for(int i = 0;i<100;i++){
-            byte15[i]=0;
-        }
-        
-        
+
         localPeers = announcer.getLocalPeers();
         //create and start peerswingworkers
         for (int i = 0; i < localPeers.size(); i++){
-            peerWorkers.add(new PeerSwingWorker(this,localPeers.get(i),i));
+            peerWorkers.add(new PeerSwingWorker(this,localPeers.get(i)));
             peerWorkers.get(i).execute();
         }
+        chokingHandler = new ChokingHandler(this);
+        chokingHandler.execute();
+        
     }
     /**
      * Stops the torrenting process and prints the download time.
@@ -226,6 +226,7 @@ public class ProcessHandler {
         for (int i = 0; i < peerWorkers.size(); i++){
             peerWorkers.get(i).cancel(true);
         }
+        chokingHandler.cancel(true);
         trackerTimer.cancel();
         trackerTimer.purge();
         
@@ -332,6 +333,19 @@ public class ProcessHandler {
      */
     public void setDownloadTime(){ 
         downloadTime+=System.nanoTime()-startTime;
+    }
+    
+    /**Counts the number of unchoked peers
+     * @return number of unchoked peers
+     */
+    public int getNumUnchoked(){
+        int unchokedCount = 0;
+        for (PeerSwingWorker peerWorker:peerWorkers){
+            if(!peerWorker.peer.choked){
+                unchokedCount++;
+            }
+        }
+        return unchokedCount;
     }
     
 }

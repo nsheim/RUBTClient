@@ -21,20 +21,17 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
     ProcessHandler processes;
     Peer peer;
     boolean stillConnected;
-    int ID;
-    int byte15[];
    
     /**
      * Constructor for objects of class PeerSwingWorker.
      * @param processes defines a current set of processes and properties that provide information about execution
      * @param peer peer to which this PeerSwingWorker manages the connection
      */
-    public PeerSwingWorker(ProcessHandler processes, Peer peer,int ID){
+    public PeerSwingWorker(ProcessHandler processes, Peer peer){
         this.processes = processes;
         this.peer = peer;
         this.stillConnected = true;
-        this.ID = ID;
-        this.byte15 = processes.byte15;
+        
     } 
     
     /**
@@ -48,9 +45,7 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
             //returnVal = connectToPeer();
             connectToPeer();
             //RUBTClient.debugPrint("Closing connections...");
-            if(peer.getSocket()!=null){
-                peer.getSocket().close();
-           }
+            peer.getSocket().close();
             return true;
         }
         catch(Exception e){
@@ -73,13 +68,8 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
         DataOutputStream output;
         try {
                 RUBTClient.debugPrint("Local Peer: " + peer);
-                //System.out.println("Trying to create socket with "+peer.getIP());
+
                 peerSocket = new Socket(peer.getIP(), peer.getPort());
-                System.out.println("Socket created with "+peer.getIP());
-                if(peerSocket == null){
-                    System.out.println("Connection with "+peer.getIP()+" is refused");
-                    return false;
-                }
                 peer.setSocket(peerSocket);
                 
                 input = new DataInputStream (peerSocket.getInputStream());
@@ -126,79 +116,14 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
         long currentTimeKeepAlive;
         long startTime = System.nanoTime();
         boolean receivedMessage = false;
-        long checkTime = System.nanoTime();
-        int byte15 = 0;
-        boolean choked = false;
-        
         try{ 
-            int PiecesReceive = 0;
-            int count = 1;
+
             while (!peerSocket.isClosed()&&processes.isStarted() && stillConnected){
-                if(choked == true){
-                    System.out.println("\n\n\n\n\n\n"+peer.getIP()+" Choked, but still in loop.\n\n\n\n\n");
-                }
+              
                 
                 try{
-                    
                     currentTimeReceivedMessage = System.nanoTime()-startTimeReceivedMessage;
                     currentTimeKeepAlive = System.nanoTime()-startTimeKeepAlive;
-                    
-                    
-                    
-                    //optimistic unchking.
-                    if((System.nanoTime()-checkTime)/1000000000.0 > 15){
-                        
-                        System.out.println("\n\n\n\nBytes in 15 s of "+peer.getIP()+" is "+byte15+"\n\n\n\n\n\n");
-                        int []current = new int [100];
-                        current = processes.byte15;
-                        for(int j =0;j<99;j++){
-                            processes.byte15[j]=0;
-                        }
-                        Arrays.sort(current);
-                        boolean test =false;
-                        
-                        for(int j=99;j>80;j--){
-                            if(byte15 > current[j]){
-                                output.write(MessageHandler.P2PMessage.UNCHOKE.bytes());
-                                output.flush();
-                                if(choked == true){
-                                    System.out.println("\n\n\n\n\n\nWe Optimistically Unchoked peer "+peer.getIP()+"\n\n\n\n\n\n");
-                                    choked=false;
-                                    startTime = System.nanoTime();
-                                }
-                                test = true;
-                                break;
-                            }
-                        }
-                        if(test == false){
-                            output.write(MessageHandler.P2PMessage.CHOKE.bytes());
-                            output.flush();
-                            System.out.println("\n\n\n\n\n\n"+peer.getIP()+" sends too slow, we choked him!\n\n\n");
-                        }
-                        checkTime = System.nanoTime();
-                        byte15=0;
-                    }
-                    
-                    
-                    
-                    //get rid of free riders.
-                    if((System.nanoTime()-startTime)/1000000000.0 > 30.0){
-                        try{
-                            if(PiecesReceive == 0){
-                                output.write(MessageHandler.P2PMessage.CHOKE.bytes());
-                                System.out.println("\n\n\n\n\n\n"+peer.getIP()+" never upload to us, I chocked him!\n\n\n");
-                                choked = true;
-                            }
-                            PiecesReceive = 0;
-                            startTime=System.nanoTime();
-                        }
-                        catch(IOException e){
-                            e.printStackTrace();
-                        }
-                    }
-                    
-                    
-                    
                     
                     //sends a keep alive message every 90 seconds
                     if((double)currentTimeKeepAlive/1000000000.0 > 90.0){
@@ -217,10 +142,6 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                     //1. write unchoke and uintinterested messages
                     //2. send have messages to indicate what pieces the client has
                     if(firstRun&&processes.getClient().downloadComplete){
-                        //write unchoke
-                        output.writeInt(1);
-                        output.write(1);
-                        output.flush();
                         //write uninterested
                         output.writeInt(1);
                         output.write(3);
@@ -230,11 +151,11 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                     }
                     
                     if(firstRun || !peer.receivedFirstHave){
-                              /*MessageHandler.sendBitfield(commInfo, peer, input, output);*/
-                              output.writeInt(0);
-                              MessageHandler.sendFirstHave(commInfo, processes, peer, peerSocket, output);
-                              firstRun = false;
-                        }
+                          /*MessageHandler.sendBitfield(commInfo, peer, input, output);*/
+                          output.writeInt(0); //keep alive
+                          MessageHandler.sendFirstHave(commInfo, processes, peer, peerSocket, output);
+                          firstRun = false;
+                    }
                     
                     RUBTClient.debugPrint("-------------Started? "+ processes.isStarted());
                     /*--------------READ MESSAGE LENGTH-----------------*/
@@ -244,9 +165,6 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                     
                     RUBTClient.debugPrint("Bytes read: " + Arrays.toString(tmp));
                     commInfo.msgLength = java.nio.ByteBuffer.wrap(tmp).getInt();
-                    
-                    processes.byte15[ID]+=commInfo.msgLength;
-                    byte15+=commInfo.msgLength;
 
                     RUBTClient.debugPrint("Length " + commInfo.msgLength + "("+Arrays.toString(tmp)+")");
                     /*-----------------END READ MESSAGE LENGTH--------------*/
@@ -259,39 +177,31 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                         
                         int returnVal = -999;
 
-                        
-
                         //if client is downloading
                         if (MessageHandler.getMessageID(commInfo.messageID) == MessageHandler.MessageID.CHOKE){
-                            
                             returnVal = MessageHandler.peerChoked(commInfo, peer, input, output);
                         }
                         else if (MessageHandler.getMessageID(commInfo.messageID) == MessageHandler.MessageID.UNCHOKE){
-            
                             returnVal = MessageHandler.peerUnchoked(processes.getTorrentInfo(), commInfo, processes, peer, input, output);
                         }
                         else if (MessageHandler.getMessageID(commInfo.messageID) == MessageHandler.MessageID.INTERESTED){
-                            
                             returnVal = MessageHandler.peerInterested(commInfo, peer, input, output);
                         }
                         else if (MessageHandler.getMessageID(commInfo.messageID) == MessageHandler.MessageID.UNINTERESTED){
-                            
                             returnVal = MessageHandler.peerUninterested(commInfo, peer, input, output);
                         }
                         else if (MessageHandler.getMessageID(commInfo.messageID) == MessageHandler.MessageID.HAVE){
-                            
                             returnVal = MessageHandler.peerHave(commInfo, peer, input, output);
                         }
                         else if (MessageHandler.getMessageID(commInfo.messageID) == MessageHandler.MessageID.BITFIELD){
                             returnVal = MessageHandler.receivedBitfield(commInfo, peer, input, output);
                         }
-                        else if (MessageHandler.getMessageID(commInfo.messageID) == MessageHandler.MessageID.REQUEST){
-                            returnVal = MessageHandler.peerRequest(processes.getTorrentInfo(), commInfo, processes, peerSocket, input, output);
+                        else if (!peer.choked && MessageHandler.getMessageID(commInfo.messageID) == MessageHandler.MessageID.REQUEST){
+                            returnVal = MessageHandler.peerRequest(processes.getTorrentInfo(), commInfo, processes, peer, peerSocket, input, output);
                             processes.getAnnouncer().updateUploaded(processes.uploaded);
                         }
                         else if (MessageHandler.getMessageID(commInfo.messageID) == MessageHandler.MessageID.PIECE){
-                            returnVal = MessageHandler.clientDownloadPiece(processes.getTorrentInfo(),  commInfo, processes, input, output, processes.getRandomAccessFile());
-                            PiecesReceive++;
+                            returnVal = MessageHandler.clientDownloadPiece(processes.getTorrentInfo(),  commInfo, processes, peer, input, output, processes.getRandomAccessFile());
                             if (returnVal==1){ //download is complete
                                 commInfo.client.downloadComplete=true;
                                 
@@ -309,7 +219,10 @@ public class PeerSwingWorker extends SwingWorker<Boolean, Void> {
                                 commInfo.event = TrackerRequest.EVENT_STOPPED;
                             }
                             processes.getAnnouncer().updateDownload(processes.downloaded, processes.left, commInfo.event);
-                            MessageHandler.sendRequest(processes.getTorrentInfo(), commInfo, processes, input, output);
+                            
+                            if (!peer.choked) {
+                                MessageHandler.sendRequest(processes.getTorrentInfo(), commInfo, processes, input, output);
+                            }
                             //System.out.println("Return value: "+returnVal);
                         }
                         RUBTClient.debugPrint("Uploaded: " + processes.uploaded + ", Downloaded: " + processes.downloaded + ", Left: " + processes.left);

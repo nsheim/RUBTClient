@@ -2,14 +2,13 @@ import java.util.concurrent.PriorityBlockingQueue;
 import java.util.Comparator;
 /**
  * Write a description of class RarityQueue here.
- * 
- * @author (your name) 
- * @version (a version number or a date)
+ *  @author Shuhan Liu (sl1041) 154007082
+ * @author Nicole Heimbach (nsh43) 153002353
  */
 public class RarityQueue
 {
     Comparator<Piece> comparer;
-    PriorityBlockingQueue<Piece> queue;
+    PriorityBlockingQueue<Piece> queue; 
     
     private int numPieces;
     

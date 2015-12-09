@@ -29,6 +29,9 @@ public class Peer
     boolean interested;
     boolean validHandshake;
     boolean receivedFirstHave;
+    
+    int uploaded;
+    int downloaded;
     /**
      * Constructor for objects of class Peer.
      * @param peer_id the peer id of this peer
